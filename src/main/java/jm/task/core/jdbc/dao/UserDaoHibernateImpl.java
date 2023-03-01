@@ -5,6 +5,7 @@ import jm.task.core.jdbc.util.Util;
 
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
 import org.hibernate.query.NativeQuery;
 import org.hibernate.query.Query;
 
@@ -30,12 +31,15 @@ public class UserDaoHibernateImpl implements UserDao {
                     "lastname text, " +
                     "age numeric, " +
                     "PRIMARY KEY (id));";
-
+            Transaction tx = null;
             try (Session session = sessionFactory.getCurrentSession()) {
-                session.beginTransaction();
+                tx = session.beginTransaction();
                 NativeQuery query = session.createSQLQuery(sql);
                 query.executeUpdate();
-                session.getTransaction().commit();
+                tx.commit();
+            } catch (Exception e) {
+                tx.rollback();
+                e.printStackTrace();
             }
         }
     }
@@ -44,12 +48,15 @@ public class UserDaoHibernateImpl implements UserDao {
     public void dropUsersTable() {
         if (isPresentInDatabase(TABLE_NAME)) {
             String sql = "DROP TABLE " + TABLE_NAME + ";";
-
+            Transaction tx = null;
             try (Session session = sessionFactory.getCurrentSession()) {
-                session.beginTransaction();
+                tx = session.beginTransaction();
                 NativeQuery query = session.createNativeQuery(sql);
                 query.executeUpdate();
-                session.getTransaction().commit();
+                tx.commit();
+            } catch (Exception e) {
+                tx.rollback();
+                e.printStackTrace();
             }
         }
     }
@@ -58,15 +65,18 @@ public class UserDaoHibernateImpl implements UserDao {
     public void saveUser(String name, String lastName, byte age) {
         if (isPresentInDatabase(TABLE_NAME)) {
             User user = new User(name, lastName, age);
-
+            Transaction tx = null;
             try (Session session = sessionFactory.getCurrentSession()) {
-                session.beginTransaction();
+                tx = session.beginTransaction();
                 session.save(user);
                 long id = user.getId();
                 if (session.get(User.class, id) != null) {
                     System.out.println("User с именем – " + user.getName() + " добавлен в базу данных");
                 }
-                session.getTransaction().commit();
+                tx.commit();
+            } catch (Exception e) {
+                tx.rollback();
+                e.printStackTrace();
             }
         }
     }
@@ -75,13 +85,16 @@ public class UserDaoHibernateImpl implements UserDao {
     public void removeUserById(long id) {
         if (isPresentInDatabase(TABLE_NAME)) {
             String hql = "delete User where id = :id";
-
+            Transaction tx = null;
             try (Session session = sessionFactory.getCurrentSession()) {
-                session.beginTransaction();
+                tx = session.beginTransaction();
                 Query query = session.createQuery(hql);
                 query.setParameter("id", id)
                         .executeUpdate();
-                session.getTransaction().commit();
+                tx.commit();
+            } catch (Exception e) {
+                tx.rollback();
+                e.printStackTrace();
             }
         }
 
@@ -93,16 +106,18 @@ public class UserDaoHibernateImpl implements UserDao {
 
         if (isPresentInDatabase(TABLE_NAME)) {
             String hql = "from User";
-
+            Transaction tx = null;
             try (Session session = sessionFactory.getCurrentSession()) {
-                session.beginTransaction();
+                tx = session.beginTransaction();
                 Query query = session.createQuery(hql);
                 users = query.getResultList();
-                session.getTransaction().commit();
+                tx.commit();
+            } catch (Exception e) {
+                tx.rollback();
+                e.printStackTrace();
             }
 
-            users.stream()
-                    .forEach(System.out::println);
+            users.forEach(System.out::println);
         }
 
         return users;
@@ -112,16 +127,19 @@ public class UserDaoHibernateImpl implements UserDao {
     public void cleanUsersTable() {
         if (isPresentInDatabase(TABLE_NAME)) {
             String hql = "from User";
-
+            Transaction tx = null;
             try (Session session = sessionFactory.getCurrentSession()) {
-                session.beginTransaction();
+                tx = session.beginTransaction();
                 List<User> users;
                 Query query = session.createQuery(hql);
                 users = query.getResultList();
                 if (users != null) {
                     users.stream().forEach((user) -> session.delete(user));
                 }
-                session.getTransaction().commit();
+                tx.commit();
+            } catch (Exception e) {
+                tx.rollback();
+                e.printStackTrace();
             }
         }
     }
@@ -129,12 +147,12 @@ public class UserDaoHibernateImpl implements UserDao {
     private boolean isPresentInDatabase(String tableName) {
         String sql = "SELECT tablename FROM pg_tables;";
         boolean isPresent = false;
-
+        Transaction tx = null;
         try (Session session = sessionFactory.getCurrentSession()) {
-            session.beginTransaction();
+            tx = session.beginTransaction();
             NativeQuery query = session.createSQLQuery(sql);
             List<String> tables = query.getResultList();
-            session.getTransaction().commit();
+            tx.commit();
 
             for (String t : tables) {
                 if (t.equals(tableName)) {
@@ -142,8 +160,10 @@ public class UserDaoHibernateImpl implements UserDao {
                 }
             }
 
+        } catch (Exception e) {
+            tx.rollback();
+            e.printStackTrace();
         }
-
         return isPresent;
     }
 }
